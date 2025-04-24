@@ -3,9 +3,7 @@ pipeline {
 
     environment {
         DEPLOY_USER = 'ec2-user'
-        DEPLOY_HOST = '13.52.239.237'
-        SSH_KEY_ID  = 'ssh-key' // This must match the ID of your private key in Jenkins credentials
-        APP_DIR     = '/home/ec2-user/node-js-app'
+        DEPLOY_HOST = '54.153.65.92' // updated deployment server IP
     }
 
     stages {
@@ -23,35 +21,29 @@ pipeline {
 
         stage('Deploy to Deployment Server') {
             steps {
-                sshagent (credentials: ["${SSH_KEY_ID}"]) {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
-                        pkill node || true
-                        mkdir -p ${APP_DIR}
-                        rm -rf ${APP_DIR}/*
-                        exit
-                    EOF
-
-                    scp -o StrictHostKeyChecking=no -r * ${DEPLOY_USER}@${DEPLOY_HOST}:${APP_DIR}/
-
-                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
-                        cd ${APP_DIR}
-                        npm install
-                        nohup node app.js > output.log 2>&1 &
-                        exit
-                    EOF
-                    """
+                sshagent(['ec2-user']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST << EOF
+                        echo "✅ Connected to deployment server"
+                        # Add deployment commands here
+                        # Example:
+                        # cd /home/ec2-user/app
+                        # git pull
+                        # npm install
+                        # pm2 restart app
+                        EOF
+                    '''
                 }
             }
         }
     }
 
     post {
-        success {
-            echo '✅ App successfully deployed!'
-        }
         failure {
             echo '❌ Deployment failed. Check Jenkins logs.'
+        }
+        success {
+            echo '✅ Deployment succeeded.'
         }
     }
 }
