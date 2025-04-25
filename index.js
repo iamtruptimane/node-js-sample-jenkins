@@ -5,7 +5,7 @@ app.set('port', (process.env.PORT || 5000))
 app.use(express.static(__dirname + '/public'))
 
 app.get('/', function(request, response) {
-  response.send('Succesfully deployed my first application through CICD!!!')
+  response.send('wohooo Succesfully deployed my first application through CICD!!!')
 })
 
 app.listen(app.get('port'), function() {
