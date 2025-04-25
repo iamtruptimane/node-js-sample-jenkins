@@ -11,21 +11,24 @@ pipeline {
     stages {
         stage('Clone Code') {
             steps {
+                echo 'Cloning the repository...'
                 git url: "${REPO_URL}", branch: 'master'
             }
         }
 
         stage('Install Dependencies') {
             steps {
+                echo 'Installing dependencies...'
                 sh 'npm install'
             }
         }
 
         stage('Deploy to Deployment Server') {
             steps {
+                echo 'Deploying to the EC2 instance...'
                 sshagent(['ssh-key']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+                    script {
+                        def deployScript = """
                             echo "✅ Connected to deployment server"
 
                             # Install pm2 if not present
@@ -43,8 +46,10 @@ pipeline {
                             pm2 stop all || true
                             pm2 start index.js --name app
                             pm2 save
-                        EOF
-                    """
+                        """
+
+                        sh(script: deployScript, returnStdout: true)
+                    }
                 }
             }
         }
