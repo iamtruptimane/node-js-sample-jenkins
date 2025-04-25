@@ -2,19 +2,20 @@ pipeline {
     agent any
 
     environment {
-        DEPLOYMENT_SERVER_IP = '54.153.65.92'
-        APP_DIR = '/home/ec2-user/node-js-app'
+        DEPLOY_USER = 'ec2-user'
+        DEPLOY_HOST = '54.153.65.92'
+        APP_DIR = '/home/ec2-user/node-js-sample-jenkins'
+        REPO_URL = 'https://github.com/iamtruptimane/node-js-sample-jenkins.git'
     }
 
     stages {
-
         stage('Clone Code') {
             steps {
-                git url: 'https://github.com/iamtruptimane/node-js-sample-jenkins.git', branch: 'master'
+                git url: "${REPO_URL}", branch: 'master'
             }
         }
 
-        stage('Install Dependencies Locally') {
+        stage('Install Dependencies') {
             steps {
                 sh 'npm install'
             }
@@ -22,32 +23,28 @@ pipeline {
 
         stage('Deploy to Deployment Server') {
             steps {
-                sshagent(['ec2-user']) {
-                    sh '''
-                    ssh -o StrictHostKeyChecking=no ec2-user@${DEPLOYMENT_SERVER_IP} << 'EOF'
-                      # Install Node.js if not installed
-                      if ! command -v node &> /dev/null; then
-                        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-                        sudo yum install -y nodejs
-                      fi
+                sshagent(['ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+                            echo "✅ Connected to deployment server"
 
-                      # Install pm2 if not installed
-                      if ! command -v pm2 &> /dev/null; then
-                        sudo npm install -g pm2
-                      fi
+                            # Install pm2 if not present
+                            which pm2 || sudo npm install -g pm2
 
-                      # Prepare app directory
-                      rm -rf ${APP_DIR}
-                      git clone https://github.com/iamtruptimane/node-js-sample-jenkins.git ${APP_DIR}
-                      cd ${APP_DIR}
-                      npm install
+                            # Clone the repo or update
+                            if [ ! -d "${APP_DIR}" ]; then
+                                git clone ${REPO_URL} ${APP_DIR}
+                            fi
 
-                      # Restart app using pm2
-                      pm2 stop all || true
-                      pm2 start index.js --name node-app
-                      pm2 save
-                    EOF
-                    '''
+                            cd ${APP_DIR}
+                            npm install
+
+                            # Stop existing app and start again
+                            pm2 stop all || true
+                            pm2 start index.js --name app
+                            pm2 save
+                        EOF
+                    """
                 }
             }
         }
@@ -55,10 +52,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment completed successfully!"
+            echo '✅ Deployment succeeded.'
         }
         failure {
-            echo "❌ Deployment failed. Check Jenkins logs."
+            echo '❌ Deployment failed. Check Jenkins logs.'
         }
     }
 }
