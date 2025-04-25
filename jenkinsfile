@@ -34,20 +34,26 @@ pipeline {
                             # Install pm2 if not present
                             which pm2 || sudo npm install -g pm2
 
-                            # Clone the repo or update
+                            # Check if the app directory exists, otherwise clone the repo
                             if [ ! -d "${APP_DIR}" ]; then
                                 git clone ${REPO_URL} ${APP_DIR}
+                            else
+                                cd ${APP_DIR}
+                                git pull origin master
                             fi
 
                             cd ${APP_DIR}
+
+                            # Install any missing dependencies
                             npm install
 
-                            # Stop existing app and start again
+                            # Stop the app if it's running and start it again
                             pm2 stop all || true
                             pm2 start index.js --name app
                             pm2 save
                         """
 
+                        // Run the deploy script on the remote EC2 instance
                         sh(script: deployScript, returnStdout: true)
                     }
                 }
