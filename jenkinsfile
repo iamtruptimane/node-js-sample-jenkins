@@ -3,13 +3,15 @@ pipeline {
 
     environment {
         DEPLOY_USER = 'ec2-user'
-        DEPLOY_HOST = '54.153.65.92' // updated deployment server IP
+        DEPLOY_HOST = '54.153.65.92'
+        APP_DIR = '/home/ec2-user/node-app'
+        REPO_URL = 'https://github.com/iamtruptimane/node-js-sample-jenkins.git'
     }
 
     stages {
         stage('Clone Code') {
             steps {
-                git url: 'https://github.com/iamtruptimane/node-js-sample-jenkins.git', branch: 'master'
+                git url: "${REPO_URL}", branch: 'master'
             }
         }
 
@@ -21,16 +23,33 @@ pipeline {
 
         stage('Deploy to Deployment Server') {
             steps {
-                sshagent(['ec2-user']) {
+                sshagent(['ssh-key']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST << EOF
+                        ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
                         echo "✅ Connected to deployment server"
-                        # Add deployment commands here
-                        # Example:
-                        # cd /home/ec2-user/app
-                        # git pull
-                        # npm install
-                        # pm2 restart app
+
+                        # Create app directory if not exists
+                        mkdir -p $APP_DIR
+                        cd $APP_DIR
+
+                        # Clone or pull latest code
+                        if [ -d ".git" ]; then
+                            git pull
+                        else
+                            git clone $REPO_URL . 
+                        fi
+
+                        # Install dependencies
+                        npm install
+
+                        # Start or restart the app with PM2
+                        if pm2 list | grep -q "app"; then
+                            pm2 restart app
+                        else
+                            pm2 start app.js --name app
+                        fi
+
+                        pm2 save
                         EOF
                     '''
                 }
@@ -39,11 +58,11 @@ pipeline {
     }
 
     post {
-        failure {
-            echo '❌ Deployment failed. Check Jenkins logs.'
-        }
         success {
             echo '✅ Deployment succeeded.'
+        }
+        failure {
+            echo '❌ Deployment failed. Check Jenkins logs.'
         }
     }
 }
