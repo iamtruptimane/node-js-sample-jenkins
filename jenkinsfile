@@ -31,8 +31,8 @@ pipeline {
                         def deployScript = """
                             echo "✅ Connected to deployment server"
 
-                            # Install pm2 if not present
-                            which pm2 || sudo npm install -g pm2
+                            # Install pm2 if not present, run as sudo without interactive prompt
+                            which pm2 || echo "Installing pm2..." && sudo npm install -g pm2
 
                             # Check if the app directory exists, otherwise clone the repo
                             if [ ! -d "${APP_DIR}" ]; then
