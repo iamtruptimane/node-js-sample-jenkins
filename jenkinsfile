@@ -11,50 +11,57 @@ pipeline {
     stages {
         stage('Clone Code') {
             steps {
-                echo 'Cloning the repository...'
+                echo '📥 Cloning the repository...'
                 git url: "${REPO_URL}", branch: 'master'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo 'Installing dependencies...'
+                echo '📦 Installing dependencies...'
                 sh 'npm install'
             }
         }
 
         stage('Deploy to Deployment Server') {
             steps {
-                echo 'Deploying to the EC2 instance...'
+                echo '🚀 Deploying to the EC2 instance...'
+
                 sshagent(['ssh-key']) {
                     script {
                         def deployScript = """
-                            echo "✅ Connected to deployment server"
+                            echo '✅ Connected to deployment server'
 
-                            # Install pm2 if not present, run as sudo without password prompt
-                            which pm2 || echo "Installing pm2..." && sudo npm install -g pm2
+                            # Install pm2 if not already installed
+                            which pm2 || {
+                                echo 'Installing pm2...'
+                                sudo -S npm install -g pm2
+                            }
 
-                            # Check if the app directory exists, otherwise clone the repo
+                            # Clone or update the application
                             if [ ! -d "${APP_DIR}" ]; then
+                                echo 'Cloning repo on deployment server...'
                                 git clone ${REPO_URL} ${APP_DIR}
                             else
+                                echo 'Pulling latest changes...'
                                 cd ${APP_DIR}
                                 git pull origin master
                             fi
 
                             cd ${APP_DIR}
 
-                            # Install any missing dependencies
+                            # Install dependencies
+                            echo 'Installing dependencies on deployment server...'
                             npm install
 
-                            # Stop the app if it's running and start it again
+                            # Restart the application
+                            echo 'Restarting application...'
                             pm2 stop all || true
                             pm2 start index.js --name app
                             pm2 save
                         """
 
-                        // Run the deploy script on the remote EC2 instance
-                        sh(script: deployScript, returnStdout: true)
+                        sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '${deployScript}'"
                     }
                 }
             }
