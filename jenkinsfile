@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DEPLOY_USER = 'ec2-user'
-        DEPLOY_HOST = '54.153.65.92'
-        APP_DIR = '/home/ec2-user/node-js-sample-jenkins'
+        DEPLOY_USER = 'ubuntu'
+        DEPLOY_HOST = '172.31.87.26'
+        APP_DIR = '/home/ubuntu/node-js-sample-jenkins'
         REPO_URL = 'https://github.com/iamtruptimane/node-js-sample-jenkins.git'
     }
 
@@ -27,7 +27,7 @@ pipeline {
             steps {
                 echo '🚀 Deploying to the EC2 instance...'
 
-                sshagent(['ssh-key']) {
+                sshagent(['node-key']) {
                     script {
                         def deployScript = """
                             echo '✅ Connected to deployment server'
