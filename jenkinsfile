@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DEPLOY_USER = 'ec2-user'
-        DEPLOY_HOST = '172.31.89.166'
+        DEPLOY_HOST = '3.82.100.190'
         APP_DIR = '/home/ec2-user/node-js-sample-jenkins'
         REPO_URL = 'https://github.com/iamtruptimane/node-js-sample-jenkins.git'
     }
