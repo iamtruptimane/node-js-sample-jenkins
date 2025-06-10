@@ -11,58 +11,55 @@ pipeline {
     stages {
         stage('Clone Code') {
             steps {
-                echo '📥 Cloning the repository...'
-                git url: "${REPO_URL}", branch: 'master'
+                echo '📥 Cloning the repository on Jenkins agent...'
+                git url: "${env.REPO_URL}", branch: 'master'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo '📦 Installing dependencies...'
+                echo '📦 Installing dependencies on Jenkins agent...'
                 sh 'npm install'
             }
         }
 
-        stage('Deploy to Deployment Server') {
+        stage('Deploy to EC2 Server') {
             steps {
-                echo '🚀 Deploying to the EC2 instance...'
+                echo '🚀 Starting deployment on remote EC2 instance...'
 
                 sshagent(['node-key']) {
-                    script {
-                        def deployScript = """
-                            echo '✅ Connected to deployment server'
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << 'ENDSSH'
+                        #!/bin/bash
+                        echo '✅ Connected to remote server'
 
-                            # Install pm2 if not already installed
-                            which pm2 || {
-                                echo 'Installing pm2...'
-                                sudo -S npm install -g pm2
-                            }
+                        if ! command -v pm2 &> /dev/null
+                        then
+                            echo 'Installing PM2 globally...'
+                            sudo npm install -g pm2
+                        fi
 
-                            # Clone or update the application
-                            if [ ! -d "${APP_DIR}" ]; then
-                                echo 'Cloning repo on deployment server...'
-                                git clone ${REPO_URL} ${APP_DIR}
-                            else
-                                echo 'Pulling latest changes...'
-                                cd ${APP_DIR}
-                                git pull origin master
-                            fi
-
+                        if [ ! -d "${APP_DIR}" ]; then
+                            echo 'Cloning repository...'
+                            git clone ${REPO_URL} ${APP_DIR}
+                        else
+                            echo 'Repository already exists. Pulling latest changes...'
                             cd ${APP_DIR}
+                            git pull origin master
+                        fi
 
-                            # Install dependencies
-                            echo 'Installing dependencies on deployment server...'
-                            npm install
+                        cd ${APP_DIR}
+                        echo 'Installing application dependencies...'
+                        npm install
 
-                            # Restart the application
-                            echo 'Restarting application...'
-                            pm2 stop all || true
-                            pm2 start index.js --name app
-                            pm2 save
-                        """
+                        echo 'Restarting application using PM2...'
+                        pm2 stop app || true
+                        pm2 start index.js --name app
+                        pm2 save
 
-                        sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '${deployScript}'"
-                    }
+                        echo '✅ Deployment complete.'
+                        ENDSSH
+                    """
                 }
             }
         }
@@ -73,7 +70,7 @@ pipeline {
             echo '✅ Deployment succeeded.'
         }
         failure {
-            echo '❌ Deployment failed. Check Jenkins logs.'
+            echo '❌ Deployment failed. Please check the logs for details.'
         }
     }
 }
